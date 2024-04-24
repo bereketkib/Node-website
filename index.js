@@ -1,29 +1,40 @@
-const http = require("http");
-const url = require("url");
-const fs = require("fs");
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
-const page404 = fs.readFileSync("404.html", "utf-8");
-
-http
-  .createServer(function (req, res) {
-    const q = url.parse(req.url, true);
-    let filename = "";
-    if (q.pathname === "/") {
-      filename = "./index.html";
-    } else {
-      filename = `.${q.pathname}`;
+const server = http.createServer((req, res) => {
+    let filePath = '.' + req.url;
+    if (filePath === './') {
+        filePath = './index.html';
     }
 
-    fs.readFile(filename, function (err, data) {
-      if (err) {
-        res.writeHead(404, { "Content-Type": "text/html" });
-        res.write(page404);
-        return res.end();
-      } else {
-        res.writeHead(200, { "Content-Type": "text/html" });
-        res.write(data);
-        return res.end();
-      }
+    const extname = String(path.extname(filePath)).toLowerCase();
+    const contentType = {
+        '.html': 'text/html',
+        '.css': 'text/css',
+        '.js': 'text/javascript',
+    }[extname] || 'application/octet-stream';
+
+    fs.readFile(filePath, (err, content) => {
+        if (err) {
+            if (err.code == 'ENOENT') {
+                fs.readFile('./404.html', (err, content) => {
+                    res.writeHead(404, { 'Content-Type': 'text/html' });
+                    res.end(content, 'utf-8');
+                });
+            } else {
+                res.writeHead(500);
+                res.end('Server Error: ' + err.code);
+            }
+        } else {
+            res.writeHead(200, { 'Content-Type': contentType });
+            res.end(content, 'utf-8');
+        }
     });
-  })
-  .listen(8080);
+});
+
+const PORT = process.env.PORT || 8080;
+
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
